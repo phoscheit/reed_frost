@@ -1,0 +1,104 @@
+\documentclass[a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+
+\title{A Reed-Frost household model}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\section*{Model description}
+
+We consider a finite population divided into \emph{households}, with individuals
+interacting both within and outside of their respective households. We will 
+focus on modeling the spread within the household, while taking the possibility
+of community-acquired infection into account. 
+
+For a given household with \(m\) individuals, consider at each time \(t\) the
+set \(S_t\) of susceptible individuals and the set \(I_t\) of infectious
+individuals. The number of such individuals will be noted \(s_t\) and \(i_t\)
+respectively. We will assume that infection lasts for a fixed duration \(T_I\),
+after which individuals have permanent immunity. The time \(T_I\) is the sum of 
+a presymptomatic period \(T_p\) and a symptomatic period \(T_s\). Some 
+percentage of individuals experience \emph{asymptomatic} infection
+
+Infectivity of an infectious individual varies over time. If an individual \(j\)
+gets
+infected at time \(t_0^j\), then for \(t\in [t_0^j,t_0^j+T_I]\), note \(h_j
+(t)=h_0
+(t-t_0^j)\) its
+infectivity, where \(h_0\) is the common infectivity profile of all individuals.
+
+Within the household, individuals are mixing completely. Hence, at time \(t\), a
+susceptible individual gets exposed to all infectious individuals. The 
+collective force of infection is then 
+\begin{equation}
+	H(t) = \sum_{j\in I_t} h_j(t),
+\end{equation}
+and a susceptible individual gets infected with probability
+\begin{equation}
+	1-Q_h(t) = 1- \exp(-\beta H(t)).
+\end{equation}
+The term \(Q_h(t)\) is sometimes dubbed \emph{household escape probability}. 
+Note that when
+\(h(t)=h\) is constant, \(H(t)=hi_t\), and the escape
+probability can be written as \(Q(t) = \exp(-\beta)^{i_t}\), which is the case 
+of the classical Reed-Frost model.
+
+In addition to infections within the household, each susceptible individual can
+also be infected in the community. If \(A\) is the probability of that event,
+which is assumed to be independent from within-household infection, then total
+infection probability at time \(t\) is then
+
+\[
+	P(t)=1-Q(t) = 1-A\exp(-\beta H(t)).
+\]
+
+This process of infections happens at each timestep, independently for each
+susceptible individual, so that at time \(t+1\), the number of new infections is
+binomially distributed with parameters \(s_t\) and \(P(t)\). The ensuing process
+\((s_t,i_t)\) is not Markovian (because of the fixed recovery time \(T_I\)).
+
+\section*{Observed data}
+
+We assume that the data contain the number of individuals in each household,
+along with symptom onset times of symptomatic individuals. Additional covariates
+can be integrated in the model (see below, \emph{Possible extensions}).
+
+\section*{Parameters}
+
+\begin{itemize}
+\item Duration of infection \(T_I=T_p+T_s\)
+\item Infectivity profile \(h_0(t),\ t\in [0,T_I]\)
+\item Transmission parameter \(\beta >0\)
+\item Community infection probability \(A\)
+\item Rate of asymptomatic infection \(F\)
+\end{itemize}
+
+\section*{Possible extensions}
+
+There are a number of important aspects of Covid-19 infection that we would like
+to address with these data. This requires refining the model to take individual
+covariates into account, such as age (which should be modelled as a categorical
+variable), severity of disease or the frequency of outside contacts. 
+
+For now, we assume that infectious individuals have the same transmission
+characteristics, but this could very well not be the case. An additional
+parameter \(v_j\) could be introduced to represent heterogeneity in
+transmissibility, such that \(h_j(t) = v_j\times h_0(t-t_0^j)\). The
+individual-level parameters  \(v_j\) could be drawn from a common distribution,
+such as a Gamma distribution, which allows for varying levels of heterogeneity 
+(see Fraser et al. 2011). The same could also be done for the infectious period 
+\(T_I\). 
+
+The impact of asymptomatic infections should also be modelled carefully, since
+it is not known at this time whether they can be infectious or not. Following 
+(Fraser et al. 2011), we could distinguish between uninfectious and infectious
+asymptomatic disease.
+
+A very important factor is the presence of non-Covid-19 infections in the
+community, which can lead to symptoms and outbreaks similar to Covid-19. 
+
+\end{document}
