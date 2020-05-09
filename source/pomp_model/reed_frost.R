@@ -1,30 +1,59 @@
 library(tidyverse)
 library(pomp)
 
-simulate(t0=0, times=1:100,
-    params = c(gamma=0.8,
-              h0=1,
-              beta=1,
-              A=0.95,
-              pI=1/3,
-              s0=5,
-              sym_prob=0.5),
-    rinit=function(s0,...){
-      c(E=0,DI=0,H=0,S=5)
-    },
-    rprocess=discrete_time(
-      function(gamma,h0,beta,A,pI,S,E,DI,H,...){
-        infection_prob <- 1-A*exp(-beta*H)
-        new_infected <- rbinom(size = E,prob = pI,n=1)
-        new_exposed <- rbinom(size = S,prob = infection_prob,n=1)
-        c(E=E+new_exposed-new_infected,
-          DI=new_infected,
-          H=gamma*H+h0*DI,
-          S=S-new_exposed)
-      },
-      delta.t=1
-    ),
-    rmeasure = function(DI,sym_prob,...){
-      c(Y=rbinom(size = DI,prob = sym_prob,n = 1))
-    }
-) -> sim1
+# First, specify the simulation function
+
+reed_frost.proc.sim <- function(gamma,h0,beta,A,pI,S,E,DI,H,...){
+  infection_prob <- 1-A*exp(-beta*H)
+  new_infected <- rbinom(size = E,prob = pI,n=1)
+  new_exposed <- rbinom(size = S,prob = infection_prob,n=1)
+  c(E=E+new_exposed-new_infected,
+    DI=new_infected,
+    H=gamma*H+h0*DI,
+    S=S-new_exposed)
+}
+
+reed_frost.init.sim <- function(s0,...){
+  c(E=0,DI=0,H=0,S=s0)
+}
+
+reed_frost.meas.sim <- function(DI,sym_prob,...){
+  c(Y=rbinom(size = DI,prob = sym_prob,n = 1))
+}
+
+reed_frost.meas.dens <- function(Y,DI,sym_prob,log,t,...){
+  dbinom(x = Y,size = DI,prob = sym_prob,log=log)
+}
+
+reedfrost <- pomp(t0=0,  
+                  data=data.frame(time=1:100,Y=NA),
+                  time="time",
+                  rinit=reed_frost.init.sim,
+                  rprocess=discrete_time(reed_frost.proc.sim,delta.t=1),
+                  rmeasure = reed_frost.meas.sim,
+                  dmeasure = reed_frost.meas.dens
+)
+
+true_params <- c(gamma=0.5,
+  h0=1,
+  beta=0.1,
+  A=0.99,
+  pI=1/3,
+  s0=5,
+  sym_prob=0.9)
+
+sim <- simulate(reedfrost,params=true_params,nsim = 1)
+
+pf <- pfilter(sim,Np=1000)
+logLik(pf)
+
+test_params <- c(gamma=0.4,
+                 h0=1,
+                 beta=0.1,
+                 A=0.99,
+                 pI=1/3,
+                 s0=6,
+                 sym_prob=0.5)
+
+test_pf <- pfilter(sim,params=test_params,Np=1000)
+logLik(test_pf)
