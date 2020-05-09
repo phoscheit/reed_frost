@@ -66,11 +66,14 @@ Markovian process
 whose transitions can be summed up as follow:
 
 \begin{align}
-	e_{t+1} & \sim \text{Bin}(s_t,P(t)), \\
-	\Delta i_{t+1} & \sim \text{Bin}(e_t,p_I), \\
+	e_{t+1} & = e_t + E - I, \\
+	\Delta i_{t+1} & = I, \\
 	H_{t+1} & = \gamma H_t + h_0 \Delta i_{t+1}, \\
-	s_{t+1} & = s_t - \Delta i_{t+1}.
+	s_{t+1} & = s_t - E,
 \end{align}
+where the number \(E\) of newly exposed individuals is binomially distributed
+with parameters \(s_t\) and \(P(t)\), and the number \(I\) of newly infectious
+individuals is binomially distributed with parameters \(e_t\) and \(p_I\).
 
 \section*{Observation model}
 
