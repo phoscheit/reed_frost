@@ -17,5 +17,5 @@ jobs:
       - name: Upload file
         uses: actions/upload-artifact@master
         with: 
-          name: **.pdf
-          path: tex/
+          name: model
+          path: tex/model.pdf
