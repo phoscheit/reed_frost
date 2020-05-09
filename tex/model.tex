@@ -1,0 +1,155 @@
+\documentclass[a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+
+\title{A Reed-Frost household model for Covid-19}
+
+\begin{document}
+
+\maketitle
+
+\section*{Model description}
+
+We consider a finite population divided into \emph{households}, with individuals
+interacting both within and outside of their respective households. We will 
+focus on modeling the spread within the household, while taking the possibility
+of community-acquired infection into account. 
+
+For a given household with \(m\) individuals, consider at each time \(t\) the
+set \(S_t\) of susceptible individuals and the set \(I_t\) of infectious
+individuals. The number of such individuals will be noted \(s_t\) and \(i_t\)
+respectively. Given the long incubation time of Covid-19 and the possibility of
+presymptomatic transmission, we will also consider the set \(E_t\) of 
+\emph{exposed} individuals, who have yet to develop symptoms. Exposed 
+individuals then become infectious with probability \(p_I\) at each timestep, so
+that the total length of the latent period is geometric with parameter \(p_I\).
+
+The level of infectiousness of an infectious individual \(j\) will be noted 
+\(h_j(t)\). We will assume that infectiousness decreases with time in a 
+geometric fashion, such that, if \(j\) is infectious, 
+\begin{equation}
+	h_j(t+1) = \gamma h_j(t).
+\end{equation}
+Within the household, individuals are mixing completely. Hence, at time \(t\), a
+susceptible individual gets exposed to all infectious individuals. The 
+collective force of infection is then 
+\begin{equation}
+	H_t = \sum_{j\in I_t} h_j(t),
+\end{equation}
+and a susceptible individual becomes exposed (is infected with the virus) with
+probability
+\begin{equation}
+	1-Q_h(t) = 1- \exp(-\beta H_t).
+\end{equation}
+The term \(Q_h(t)\) is sometimes dubbed \emph{household escape probability}. 
+Note that when \(h(t)=h_0\) is constant, \(H_t=h_0 i_t\), and the escape
+probability can be written as \(Q(t) = \exp(-\beta h_0)^{i_t}\), which is the
+case of the classical Reed-Frost model.
+
+In addition to infections within the household, each susceptible individual can
+also be infected in the community. If \(1-A\) is the probability of that event,
+which is assumed to be independent from within-household infection, then total
+infection probability at time \(t\) is 
+
+\[
+	P(t)=1-Q(t) = 1-A\exp(-\beta H_t).
+\]
+
+This process of infections happens at each timestep, independently for each
+susceptible individual, so that at time \(t+1\), the number of new infections is
+binomially distributed with parameters \(s_t\) and \(P(t)\). We will study the
+Markovian process
+\begin{equation}
+	X_t=(s_t,e_t,\Delta i_t,H_t),
+\end{equation}
+whose transitions can be summed up as follow:
+
+\begin{align}
+	e_{t+1} & \sim \text{Bin}(s_t,P(t)), \\
+	\Delta i_{t+1} & \sim \text{Bin}(e_t,p_I), \\
+	H_{t+1} & = \gamma H_t + h_0 \Delta i_{t+1}, \\
+	s_{t+1} & = s_t - \Delta i_{t+1}.
+\end{align}
+
+\section*{Observation model}
+
+We assume that the data contain the number \(s_0\) of individuals in each
+household, along with symptom onset times of symptomatic individuals. In our
+context, we will assume that infectious individuals are symptomatic with
+probability \(F\) and we will write \(Y_t \sim \text{Bin}(\Delta i_t,F)\) for 
+the observed number of newly-infected, symptomatic individuals. 
+
+This, and the Markov property of the hidden process \(X\) makes inference 
+through classical HMM algorithms possible, such as particle MCMC, or iterated
+filtering. As a sanity check, it should also be possible to fit the classical
+Reed-Frost model to the final size data \((s_0,i_\infty)\) as in 
+\cite{Cauchemez2014} to
+estimate some of the same parameters as in this model.
+
+\section*{Parameters}
+
+\begin{itemize}
+\item Rate of decrease of infectiousness \(\gamma >0\).
+\item Initial infectiousness \(h_0 >0\).
+\item Transmission parameter \(\beta >0\).
+\item Community escape probability \(A\).
+\item Rate of asymptomatic infection \(F\).
+\item Probability of an exposed individual becoming infectious per time unit 
+\(p_I\).
+\end{itemize}
+
+\section*{Possible extensions}
+
+There are a number of important aspects of Covid-19 infection that we would like
+to address with these data. This requires refining the model to take individual
+covariates into account, such as age (which should be modelled as a categorical
+variable), severity of disease or the frequency of outside contacts. 
+
+For now, we assume that infectious individuals have the same transmission
+characteristics, but this could very well not be the case. The initial
+infectiousness \(h_0\) could be drawn from a common distribution,
+such as a Gamma distribution, which allows for varying levels of heterogeneity 
+(see \cite{Fraser2011}). Also, we did not include the age structure of
+households, which will have to be done at some point since transmissibility
+between age groups is a crucial knowledge gap at this time.
+
+The impact of asymptomatic infections should also be modelled carefully, since
+it is not known at this time whether they can be infectious or not. Following 
+(\cite{Fraser2011}), we could distinguish between uninfectious and infectious
+asymptomatic disease.
+
+A very important factor is the presence of non-Covid-19 infections in the
+community, which can lead to symptoms and outbreaks similar to Covid-19. This
+represents a major bias in the data. This can be resolved in several ways: the
+simplest one is to independently estimate the proportion of influenza-like
+illnesses who are in fact due to Covid-19 disease (for instance, by using the
+rate of positive PCR tests as a proxy), and adjust the parameters accordingly. A
+more sophisticated approach would be to finely distinguish between symptoms,
+according to their predictive value for Covid-19.
+
+For now, we did not include the possibility of presymptomatic transmission, for
+simplicity's sake. In order to take this into account, we could add a second
+Exposed compartment for asymptomatic and infectious individuals. 
+
+\newcommand{\etalchar}[1]{$^{#1}$}
+\begin{thebibliography}{FCK{\etalchar{+}}11}
+
+\bibitem[CFF{\etalchar{+}}14]{Cauchemez2014}
+Simon Cauchemez, Neil~M. Ferguson, Annette Fox, Le~Quynh Mai, Le~Thi Thanh,
+  Pham~Quang Thai, Dang~Dinh Thoang, Tran~Nhu Duong, Le~Nguyen {Minh Hoa},
+  Nguyen {Tran Hien}, and Peter Horby.
+\newblock {Determinants of Influenza Transmission in South East Asia: Insights
+  from a Household Cohort Study in Vietnam}.
+\newblock {\em PLoS Pathogens}, 10(8):2--9, 2014.
+
+\bibitem[FCK{\etalchar{+}}11]{Fraser2011}
+Christophe Fraser, Derek~A.T. Cummings, Don Klinkenberg, Donald~S. Burke, and
+  Neil~M. Ferguson.
+\newblock {Influenza transmission in households during the 1918 pandemic}.
+\newblock {\em American Journal of Epidemiology}, 174(5):505--514, 2011.
+
+\end{thebibliography}
+
+
+\end{document}
