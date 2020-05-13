@@ -4,30 +4,32 @@ library(panelPomp)
 
 # First, specify the simulation function
 
-reed_frost.proc.sim <- function(gamma,h0,beta,A,pI,S,E,DI,H,...){
-  infection_prob <- 1-A*exp(-beta*H)
-  new_infected <- rbinom(size = E,prob = pI,n=1)
+reed_frost.proc.sim <- function(gamma,h0,beta,A,pI,pS,S,E,IP,IS,H,...){
+  infection_prob <- 1-A*exp(-beta*(H+IP*h0))
+  new_infected_pre <- rbinom(size = E,prob = pI,n=1)
+  new_infected <- rbinom(size=IP,prob=pS,n=1)
   new_exposed <- rbinom(size = S,prob = infection_prob,n=1)
-  c(E=E+new_exposed-new_infected,
-    DI=new_infected,
-    H=gamma*H+h0*DI,
+  c(E=E+new_exposed-new_infected_pre,
+    IP=IP+new_infected_pre-new_infected,
+    IS=IS+new_infected,
+    H=gamma*H+h0*new_infected,
     S=S-new_exposed)
 }
 
 reed_frost.init.sim <- function(s0,...){
-  c(E=0,DI=0,H=0,S=s0)
+  c(S=s0,E=0,IP=0,IS=0,H=0)
 }
 
-reed_frost.meas.sim <- function(DI,sym_prob,...){
-  c(Y=rbinom(size = DI,prob = sym_prob,n = 1))
+reed_frost.meas.sim <- function(IS,sym_prob,...){
+  c(Y=rbinom(size = IS,prob = sym_prob,n = 1))
 }
 
-reed_frost.meas.dens <- function(Y,DI,sym_prob,log,t,...){
-  dbinom(x = Y,size = DI,prob = sym_prob,log=log)
+reed_frost.meas.dens <- function(Y,IS,sym_prob,log,t,...){
+  dbinom(x = Y,size = IS,prob = sym_prob,log=log)
 }
 
 reed_frost.param.transform <- parameter_trans(log=c("h0","beta"),
-                                              logit=c("gamma","A","sym_prob","pI"))
+                                              logit=c("gamma","A","sym_prob","pI","pS"))
 
 reedfrost <- pomp(t0=0,  
                   data=data.frame(time=1:100,Y=NA),
@@ -37,9 +39,10 @@ reedfrost <- pomp(t0=0,
                   rmeasure = reed_frost.meas.sim,
                   dmeasure = reed_frost.meas.dens,
                   obsnames = c("Y"),
-                  statenames = c("E","DI","H","S"),
-                  paramnames = c("gamma","h0","beta","A","pI","s0","sym_prob"),
-                  partrans = reed_frost.param.transform
+                  statenames = c("E","IP","IS","H","S"),
+                  paramnames = c("gamma","h0","beta","A","pI","pS","s0","sym_prob"),
+                  partrans = reed_frost.param.transform,
+                  accumvars = "IS"
 )
 
 true_params <- c(gamma=0.5,
@@ -47,6 +50,7 @@ true_params <- c(gamma=0.5,
   beta=0.1,
   A=0.99,
   pI=1/3,
+  pS=1/2,
   s0=5,
   sym_prob=0.9)
 
