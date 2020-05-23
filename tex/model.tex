@@ -3,7 +3,7 @@
 \usepackage[utf8]{inputenc}
 \usepackage{amsmath}
 
-\title{A Reed-Frost household model for Covid-19}
+\title{A dynamical Reed-Frost model for Covid-19 household contamination}
 
 \begin{document}
 
@@ -21,21 +21,31 @@ set \(S_t\) of susceptible individuals and the set \(I_t\) of infectious
 individuals. The number of such individuals will be noted \(s_t\) and \(i_t\)
 respectively. Given the long incubation time of Covid-19 and the possibility of
 presymptomatic transmission, we will also consider the set \(E_t\) of 
-\emph{exposed} individuals, who have yet to develop symptoms. Exposed 
-individuals then become infectious with probability \(p_I\) at each timestep, so
-that the total length of the latent period is geometric with parameter \(p_I\).
+\emph{exposed} individuals, who have yet to develop symptoms. They are not
+infectious in their current state (pre-infectious incubation). In accordance 
+with recent evidence about viral shedding in Covid-19, we will divide the set of
+infectious individuals into pre-symptomatic and post-symptomatic individuals: 
+\[
+	I_t=I_t^p\cup I_t^s.
+\]
 
 The level of infectiousness of an infectious individual \(j\) will be noted 
-\(h_j(t)\). We will assume that infectiousness decreases with time in a 
-geometric fashion, such that, if \(j\) is infectious, 
-\begin{equation}
-	h_j(t+1) = \gamma h_j(t).
+\(h_j(t)\). We will assume that infectiousness is constant during the
+presymptomatic phase \([t_p,t_s)\), then decreases with time in a geometric
+fashion during the symptomatic phase \([t_s,\infty)\), such
+that, if \(j\) is infectious, \begin{equation}
+	h_j(t)  = 
+		\begin{cases}
+		h_0 & \text{if } t_p \le t < t_s,\\ 
+		h_0\gamma^{t-t_s}& \text{if } t\ge t_s.
+		\end{cases} 
 \end{equation}
 Within the household, individuals are mixing completely. Hence, at time \(t\), a
 susceptible individual gets exposed to all infectious individuals. The 
-collective force of infection is then 
+collective force of infection is then the sum of the contributions of both
+presymptomatic and post-symptomatic infectious individuals:
 \begin{equation}
-	H_t = \sum_{j\in I_t} h_j(t),
+	H_t = H_t^p + H_t^s = h_0 |I^p_t| + \sum_{j\in I_t^s} h_j(t),
 \end{equation}
 and a susceptible individual becomes exposed (is infected with the virus) with
 probability
@@ -43,9 +53,6 @@ probability
 	1-Q_h(t) = 1- \exp(-\beta H_t).
 \end{equation}
 The term \(Q_h(t)\) is sometimes dubbed \emph{household escape probability}. 
-Note that when \(h(t)=h_0\) is constant, \(H_t=h_0 i_t\), and the escape
-probability can be written as \(Q(t) = \exp(-\beta h_0)^{i_t}\), which is the
-case of the classical Reed-Frost model.
 
 In addition to infections within the household, each susceptible individual can
 also be infected in the community. If \(1-A\) is the probability of that event,
@@ -61,33 +68,43 @@ susceptible individual, so that at time \(t+1\), the number of new infections is
 binomially distributed with parameters \(s_t\) and \(P(t)\). We will study the
 Markovian process
 \begin{equation}
-	X_t=(s_t,e_t,\Delta i_t,H_t),
+	X_t=(s_t,e_t,i^p_t,i_t^s,H_t^s),
 \end{equation}
 whose transitions can be summed up as follow:
-
-\begin{align}
-	e_{t+1} & = e_t + E - I, \\
-	\Delta i_{t+1} & = I, \\
-	H_{t+1} & = \gamma H_t + h_0 \Delta i_{t+1}, \\
-	s_{t+1} & = s_t - E,
-\end{align}
-where the number \(E\) of newly exposed individuals is binomially distributed
-with parameters \(s_t\) and \(P(t)\), and the number \(I\) of newly infectious
-individuals is binomially distributed with parameters \(e_t\) and \(p_I\).
+\begin{align*}
+	e_{t+1} & = e_t + \Delta E_t - \Delta I^p_t, \\
+	i_{t+1}^p & = i_{t}^p +\Delta I^p_t - \Delta I_t^s, \\
+	i_{t+1}^s & = i_t^s +\Delta I_t^s, \\
+	H_{t+1}^s & = \gamma H_t^s + h_0 \Delta I_t^s, \\
+	s_{t+1} & = s_t - \Delta E_t,
+\end{align*}
+where 
+\begin{align*}
+	\Delta E_t & \sim \mathsf{Bin}(s_t,P(t)),\\
+	\Delta I^p_t & \sim \mathsf{Bin}(e_t,p_I),\\
+	\Delta I^s_t & \sim \mathsf{Bin}(i^p_t,p_S)
+\end{align*}
+are the number of newly exposed, newly presymptomatic and symptomatic
+individuals, respectively.
 
 \section*{Observation model}
 
 We assume that the data contain the number \(s_0\) of individuals in each
 household, along with symptom onset times of symptomatic individuals. In our
-context, we will assume that infectious individuals are symptomatic with
-probability \(F\) and we will write \(Y_t \sim \text{Bin}(\Delta i_t,F)\) for 
-the observed number of newly-infected, symptomatic individuals. 
+context, we will assume that symptomatic infectious individuals are detected
+with probability \(F\) (thus aggregating subclinical or entirely asymptomatic
+disease and biases due to self-reporting) and we will write 
+\[
+	Y_t \sim \mathsf{Bin}(\Delta I_t^s,F)
+\]
+for the observed number of newly-infected, symptomatic individuals. 
 
 This, and the Markov property of the hidden process \(X\) makes inference 
-through classical HMM algorithms possible, such as particle MCMC, or iterated
-filtering. As a sanity check, it should also be possible to fit the classical
-Reed-Frost model to the final size data \((s_0,i_\infty)\) as in 
-\cite{Cauchemez2014} to estimate some of the same parameters as in this model.
+through classical HMM algorithms theoretically possible, such as particle MCMC 
+\cite{Endo2019}, or iterated filtering \cite{Ionides2015}. As a sanity check, 
+it should also be possible to fit the classical Reed-Frost model to the final 
+size data \((s_0,i_\infty)\) as in \cite{Cauchemez2014} to estimate some of the 
+same parameters as in this model.
 
 \section*{Parameters}
 
@@ -99,6 +116,7 @@ Reed-Frost model to the final size data \((s_0,i_\infty)\) as in
 \item Rate of asymptomatic infection \(F\).
 \item Probability of an exposed individual becoming infectious per time unit 
 \(p_I\).
+
 \end{itemize}
 
 \section*{Possible extensions}
@@ -118,7 +136,7 @@ between age groups is a crucial knowledge gap at this time.
 
 The impact of asymptomatic infections should also be modelled carefully, since
 it is not known at this time whether they can be infectious or not. Following 
-(\cite{Fraser2011}), we could distinguish between uninfectious and infectious
+\cite{Fraser2011}, we could distinguish between uninfectious and infectious
 asymptomatic disease.
 
 A very important factor is the presence of non-Covid-19 infections in the
@@ -130,28 +148,8 @@ rate of positive PCR tests as a proxy), and adjust the parameters accordingly. A
 more sophisticated approach would be to finely distinguish between symptoms,
 according to their predictive value for Covid-19.
 
-For now, we did not include the possibility of presymptomatic transmission, for
-simplicity's sake. In order to take this into account, we could add a second
-Exposed compartment for asymptomatic and infectious individuals. 
-
-\newcommand{\etalchar}[1]{$^{#1}$}
-\begin{thebibliography}{FCK{\etalchar{+}}11}
-
-\bibitem[CFF{\etalchar{+}}14]{Cauchemez2014}
-Simon Cauchemez, Neil~M. Ferguson, Annette Fox, Le~Quynh Mai, Le~Thi Thanh,
-  Pham~Quang Thai, Dang~Dinh Thoang, Tran~Nhu Duong, Le~Nguyen {Minh Hoa},
-  Nguyen {Tran Hien}, and Peter Horby.
-\newblock {Determinants of Influenza Transmission in South East Asia: Insights
-  from a Household Cohort Study in Vietnam}.
-\newblock {\em PLoS Pathogens}, 10(8):2--9, 2014.
-
-\bibitem[FCK{\etalchar{+}}11]{Fraser2011}
-Christophe Fraser, Derek~A.T. Cummings, Don Klinkenberg, Donald~S. Burke, and
-  Neil~M. Ferguson.
-\newblock {Influenza transmission in households during the 1918 pandemic}.
-\newblock {\em American Journal of Epidemiology}, 174(5):505--514, 2011.
-
-\end{thebibliography}
+\bibliographystyle{plain}
+\bibliography{library.bib}
 
 
 \end{document}

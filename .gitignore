@@ -468,3 +468,4 @@ vignettes/*.pdf
 /*_files/
 
 # End of https://www.gitignore.io/api/r,latex,macos,python
+*.svg
