@@ -1,38 +1,10 @@
 #include <vector>
+#include <tuple>
 #include <iostream>
 #include <cmath>
 #include <nlopt.hpp>
 #include <Eigen/Dense>
 #include <boost/math/special_functions/binomial.hpp>
-
-double expected_prob(const std::vector<int> sizes, const std::vector<double>
-	&parameters, const std::vector<Eigen::MatrixXd> &distributions){
-	const double hh_size = sizes[0]; // n \ge 1 
-	const double hh_sus = sizes[1]; // s0 \ge 1 
-	const double hh_inf = sizes[2]; // m \ge 1
-
-	double pasx = parameters[1];
-	double ppr = parameters[2];
-
-	double sum=0.;
-
-	for(int t=0; t<(hh_size-hh_inf); ++t)
-	{
-		for(int r=0; r<(hh_size-hh_inf-t); ++r)
-		{
-			for (int l = 0; l < (hh_size-hh_inf-t); ++l)
-			{
-				double prob1 = boost::math::binomial_coefficient<double>
-				(hh_inf+t,t)*pow(pasx,t)*pow(1-pasx,hh_inf);
-				double prob2 = boost::math::binomial_coefficient<double>
-				(hh_size,r)*pow(ppr,r)*pow(1-ppr,hh_size-r);
-				// double expected_prob1 = distributions[hh_size]
-				sum += 1;
-			}
-		}
-	}
-	return sum;
-}
 
 double Phi(const double &x, const double &alpha, const double &beta, const
 	double &k, const int n)
@@ -41,11 +13,15 @@ double Phi(const double &x, const double &alpha, const double &beta, const
 	return pow(k/(k+x*mean),k);
 }
 
-std::vector<Eigen::VectorXd> solve_triangular(const std::vector<double> &v,
+/* Returns a (n+1)*(n+1) matrix such that F(i,j) = F_i^{n,j}. Columns correspond
+to different values of s0, rows are the m values. As such, F is upper 
+triangular, and F(i,j) for j>i is undefined. */
+
+Eigen::MatrixXd solve_triangular(const std::vector<double> &v,
 	const int n)
 	{
-		std::vector<Eigen::VectorXd> vec;
-		for (int s0=1; s0 <= n; ++s0)
+		Eigen::MatrixXd result(n+1,n+1);
+		for (int s0=0; s0 <= n; ++s0)
 		{
 			Eigen::MatrixXd A(s0+1,s0+1);
 			Eigen::VectorXd B(s0+1);
@@ -60,28 +36,68 @@ std::vector<Eigen::VectorXd> solve_triangular(const std::vector<double> &v,
 				}
 			}
 			Eigen::VectorXd sol = A.triangularView<Eigen::Lower>().solve(B);
-			vec.push_back(sol);
+			sol.conservativeResize(n+1);
+			result.col(s0)=sol;
 		}
- 		return vec;
-		// return F;
+
+		for (int i = 0; i <= n; ++i)
+		{
+			for (int j = 0; j < i; ++j)
+			{
+				result(i,j)=0;
+			}
+		}
+ 		return result;
 	}
+
+/* Returns the value of T_{(m,n)}, the expected frequency of households of size 
+n with m infected individuals. Arguments are a tuple (n,m), the running 
+parameter vector and the precomputed matrix containing the F_m^{n,s0}. */
+double expected_prob(const std::tuple<int,int> &sizes, const
+	std::vector<double> &parameters, const Eigen::MatrixXd &distributions)
+	{
+	const double n = std::get<0>(sizes); // n \ge 1
+	const double m = std::get<1>(sizes); // 0 \le m \le s0
+
+	double pasx = parameters[1];
+	double ppr = parameters[2];
+
+	double sum=0.;
+
+	for(int t=0; t<=(n-m); ++t)
+	{
+		for(int r=0; r<=(n-m-t); ++r)
+		{
+			for (int l = 0; l<= (n-m-r); ++l)
+			{
+				double prob1 = boost::math::binomial_coefficient<double>
+				(m+t,t)*pow(pasx,t)*pow(1-pasx,m);
+				double prob2 = boost::math::binomial_coefficient<double>
+				(n,r)*pow(ppr,r)*pow(1-ppr,n-r);
+				double expected_prob1 = distributions(m+t,n-r-l);
+				double expected_prob2 = distributions(l,n-r);
+				sum += prob1*prob2*expected_prob1*expected_prob2;
+			}
+		}
+	}
+	return sum;
+}	
 
 double Dev(const std::vector<double> &v, std::vector<double> &grad, void* 
 	my_func_data)
 	{
 		/* Contains the observed final sizes k_{(m,n)}. Be careful : 
-		households(i,j) contains k_{(i+1,j+1)}. Also, households(i,j)=0 
+		households(i,j) contains k_{(i,j+1)}. Also, households(i,j)=0 
 		if i>j. */
 		const Eigen::MatrixXd *households =
 			static_cast<Eigen::MatrixXd *>(my_func_data); 
 
-		int n = (*households).rows();
+		int max_n = (*households).cols();
 
 		/*	Computes the expected final size distributions F(n; s0,m) for n \ge
 		1, m\le s0 \le n. Output is a vector whose (n+1)-th element contains the
 		matrix of the F(n;s0,m) for a fixed n. */
-		std::vector<Eigen::VectorXd> F = solve_triangular(v, n); 
-
+		Eigen::MatrixXd F = solve_triangular(v, max_n); 
 
 
 		double sum = 0.;
