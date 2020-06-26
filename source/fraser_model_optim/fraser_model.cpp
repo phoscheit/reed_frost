@@ -12,7 +12,7 @@
 #define MAXBUFSIZE  ((int) 1e6)
 
 unsigned int function_calls =0;
-unsigned long int mcmc_steps = 1000;
+unsigned long int mcmc_steps = 10000;
 
 std::vector< std::pair<int,std::vector<double> > > read_prior(const char*
 	filename)
@@ -292,60 +292,60 @@ int main(int argc, char const *argv[])
 		{"Q","p_asx","p_pr","Q_prior","k","beta","alpha"};
 	std::vector<double> init_guess { 0.5,0.5,0.5,0.5,1.,1.,1. } ;
 
-	Eigen::MatrixXd test_matrix = readMatrix("test_matrix.txt");
+	Eigen::MatrixXd test_matrix = readMatrix("sim_matrix.txt");
 
 	std::vector<std::vector<double> > variables;
 
 	// Eigen::MatrixXd prop = proposal(priors,max_n,rd);
 	// std::cout << prop << std::endl;
-	// void* my_func_data = static_cast<void *>(&prop);
-	// opt.set_min_objective(Dev,my_func_data);
-	// double minf =0.;
-	// try
-	// {
-	// 	nlopt::result result = opt.optimize(init_guess,minf);
-	// }	catch(const nlopt::roundoff_limited& e)
-	// {
-	// 	for(int i=0; i<7; ++i)
-	// 	{
-	// 		std::cout << var_names[i] << " : " << init_guess[i] << std::endl;
-	// 	}
-	// 	std::cout << "Vraisemblance : " << minf << std::endl;
-	// }
-
-	std::random_device rd;
-	std::mt19937 rng(rd());		
-
-	for (unsigned long int i = 0; i < mcmc_steps; ++i)
+	void* my_func_data = static_cast<void *>(&test_matrix);
+	opt.set_min_objective(Dev,my_func_data);
+	double minf =0.;
+	try
 	{
-		Eigen::MatrixXd prop = proposal(priors,max_n,rng);
-		std::vector<double> init_guess { 0.5,0.5,0.5,0.5,1.,1.,1. } ;
-		void* my_func_data = static_cast<void *>(&prop);
-		opt.set_min_objective(Dev,my_func_data);
-		opt.set_maxeval(10000);
-		double minf = 0.;
-		try
+		nlopt::result result = opt.optimize(init_guess,minf);
+	}	catch(const nlopt::roundoff_limited& e)
+	{
+		for(int i=0; i<7; ++i)
 		{
-			nlopt::result result = opt.optimize(init_guess,minf);
-		}	catch(const nlopt::roundoff_limited& e)
-		{
-			if(isnan(minf)) 
-			{
-				std::cout << prop << std::endl;
-				break;
-			}
-			init_guess.push_back(minf);
-			variables.push_back(init_guess);
-		}		
+			std::cout << var_names[i] << " : " << init_guess[i] << std::endl;
+		}
+		std::cout << "Vraisemblance : " << minf << std::endl;
 	}
 
-	std::ofstream outfile("mcmc_output.csv");
-    std::ostream_iterator<double> output_iterator(outfile, " ");
-    for(auto iteration : variables)
-    {
-		std::copy(iteration.begin(),iteration.end(),output_iterator);
-		outfile << "\n";
-    }
+	// std::random_device rd;
+	// std::mt19937 rng(rd());		
+
+	// for (unsigned long int i = 0; i < mcmc_steps; ++i)
+	// {
+	// 	Eigen::MatrixXd prop = proposal(priors,max_n,rng);
+	// 	std::vector<double> init_guess { 0.5,0.5,0.5,0.5,1.,1.,1. } ;
+	// 	void* my_func_data = static_cast<void *>(&prop);
+	// 	opt.set_min_objective(Dev,my_func_data);
+	// 	opt.set_maxeval(10000);
+	// 	double minf = 0.;
+	// 	try
+	// 	{
+	// 		nlopt::result result = opt.optimize(init_guess,minf);
+	// 	}	catch(const nlopt::roundoff_limited& e)
+	// 	{
+	// 		if(isnan(minf)) 
+	// 		{
+	// 			std::cout << prop << std::endl;
+	// 			break;
+	// 		}
+	// 		init_guess.push_back(minf);
+	// 		variables.push_back(init_guess);
+	// 	}		
+	// }
+
+	// std::ofstream outfile("mcmc_output.csv");
+ //    std::ostream_iterator<double> output_iterator(outfile, " ");
+ //    for(auto iteration : variables)
+ //    {
+	// 	std::copy(iteration.begin(),iteration.end(),output_iterator);
+	// 	outfile << "\n";
+ //    }
 
 	return 0;
 }
