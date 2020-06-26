@@ -13,6 +13,34 @@
 
 unsigned int function_calls =0;
 
+std::vector< std::pair<int,std::vector<double> > > read_prior(const char*
+	filename)
+	{
+		std::ifstream infile;
+		infile.open(filename);
+
+		std::vector< std::pair<int,std::vector<double> > > acc;
+
+		while(!infile.eof())
+		{
+			std::string line;
+			std::getline(infile,line);
+
+			std::stringstream stream(line);
+			int size_household;
+			stream >> size_household;
+
+			std::vector<double> priors;
+			double probab;
+			while(stream >> probab)
+			{
+				priors.push_back(probab);
+			}
+			acc.push_back(std::make_pair(size_household,priors));
+		}
+		return acc;
+	}
+
 Eigen::MatrixXd readMatrix(const char *filename)
     {
     int cols = 0, rows = 0;
@@ -203,6 +231,8 @@ double Dev(const std::vector<double> &v, std::vector<double> &grad, void*
 
 int main(int argc, char const *argv[])
 {
+	auto priors = read_prior("test_prior.txt");
+
 	std::vector<Eigen::MatrixXd> households; /* Contiendra les valeurs de 
 	tailles finales */
 
