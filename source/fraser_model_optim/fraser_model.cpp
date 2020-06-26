@@ -12,6 +12,7 @@
 #define MAXBUFSIZE  ((int) 1e6)
 
 unsigned int function_calls =0;
+unsigned long int mcmc_steps = 1000;
 
 std::vector< std::pair<int,std::vector<double> > > read_prior(const char*
 	filename)
@@ -41,7 +42,8 @@ std::vector< std::pair<int,std::vector<double> > > read_prior(const char*
 		return acc;
 	}
 
-int find_maximum(std::vector< std::pair<int,std::vector<double> > > &priors)
+int find_maximum(const std::vector< std::pair<int,
+	std::vector<double> > > &priors)
 {
 	int curr_max = 0;
 	for(auto household : priors)
@@ -52,13 +54,10 @@ int find_maximum(std::vector< std::pair<int,std::vector<double> > > &priors)
 	return curr_max;
 }
 
-Eigen::MatrixXd proposal(std::vector< std::pair<int,std::vector<double> > > 
-	&priors,int max_n)
+Eigen::MatrixXd proposal(const std::vector< std::pair<int,
+	std::vector<double> > > &priors,int max_n,std::mt19937 &rng)
 	{
-		std::random_device rd;
-		std::mt19937 rng(rd());
-
-		Eigen::MatrixXd final_sizes(max_n+1,max_n);
+		Eigen::MatrixXd final_sizes = Eigen::MatrixXd::Zero(max_n+1,max_n);
 
 		for(auto household : priors)
 		{
@@ -214,15 +213,6 @@ double expected_prob(const std::tuple<int,int> &sizes, const
 double Dev(const std::vector<double> &v, std::vector<double> &grad, void* 
 	my_func_data)
 	{
-		if(++function_calls%1000 ==0)
-		{
-			std::cout << "Function calls: " << function_calls ;
-			for(auto values:v)
-			{
-				std::cout << " Valeurs : " << values;
-			}
-			std::cout << std::endl;
-		}
 		/* Contains the observed final sizes k_{(m,n)}. Be careful : 
 		households(i,j) contains k_{(i,j+1)}. Also, households(i,j)=0 
 		if i>j. */
@@ -263,19 +253,14 @@ double Dev(const std::vector<double> &v, std::vector<double> &grad, void*
 					std::log10(expected));
 			}
 		}
-		if(function_calls%1000 ==0) std::cout << sum << std::endl;
 		return sum; 
 	}
 
 int main(int argc, char const *argv[])
 {
-	auto priors = read_prior("test_prior.txt");
+	const auto priors = read_prior("test_prior.txt");
 
-	int max_n = find_maximum(priors);
-
-	Eigen::MatrixXd prop = proposal(priors,max_n);
-
-	std::cout << prop << std::endl;
+	const int max_n = find_maximum(priors);
 
 	std::vector<Eigen::MatrixXd> households; /* Contiendra les valeurs de 
 	tailles finales */
@@ -309,27 +294,58 @@ int main(int argc, char const *argv[])
 
 	Eigen::MatrixXd test_matrix = readMatrix("test_matrix.txt");
 
-	void* my_func_data = static_cast<void *>(&prop);
+	std::vector<std::vector<double> > variables;
 
-	std::cout << "Optimisation en cours..." << std::endl;
+	// Eigen::MatrixXd prop = proposal(priors,max_n,rd);
+	// std::cout << prop << std::endl;
+	// void* my_func_data = static_cast<void *>(&prop);
+	// opt.set_min_objective(Dev,my_func_data);
+	// double minf =0.;
+	// try
+	// {
+	// 	nlopt::result result = opt.optimize(init_guess,minf);
+	// }	catch(const nlopt::roundoff_limited& e)
+	// {
+	// 	for(int i=0; i<7; ++i)
+	// 	{
+	// 		std::cout << var_names[i] << " : " << init_guess[i] << std::endl;
+	// 	}
+	// 	std::cout << "Vraisemblance : " << minf << std::endl;
+	// }
 
-	opt.set_min_objective(Dev,my_func_data);
-	double minf =0.;
+	std::random_device rd;
+	std::mt19937 rng(rd());		
 
-	try
+	for (unsigned long int i = 0; i < mcmc_steps; ++i)
 	{
-		nlopt::result result = opt.optimize(init_guess,minf);
-	}	catch(const nlopt::roundoff_limited& e)
-	{
-		for(int i=0; i<7; ++i)
+		Eigen::MatrixXd prop = proposal(priors,max_n,rng);
+		std::vector<double> init_guess { 0.5,0.5,0.5,0.5,1.,1.,1. } ;
+		void* my_func_data = static_cast<void *>(&prop);
+		opt.set_min_objective(Dev,my_func_data);
+		opt.set_maxeval(10000);
+		double minf = 0.;
+		try
 		{
-			std::cout << var_names[i] << " : " << init_guess[i] << std::endl;
-		}
-		std::cout << "Vraisemblance : " << minf << std::endl;
-		std::cout << "Nombre d'appels à Dev : " << function_calls << std::endl;
+			nlopt::result result = opt.optimize(init_guess,minf);
+		}	catch(const nlopt::roundoff_limited& e)
+		{
+			if(isnan(minf)) 
+			{
+				std::cout << prop << std::endl;
+				break;
+			}
+			init_guess.push_back(minf);
+			variables.push_back(init_guess);
+		}		
 	}
 
-
+	std::ofstream outfile("mcmc_output.csv");
+    std::ostream_iterator<double> output_iterator(outfile, " ");
+    for(auto iteration : variables)
+    {
+		std::copy(iteration.begin(),iteration.end(),output_iterator);
+		outfile << "\n";
+    }
 
 	return 0;
 }
