@@ -4,10 +4,10 @@
 #include <fstream>
 #include <cmath>
 #include <string>
+#include <random>
 #include <nlopt.hpp>
 #include <Eigen/Dense>
 #include <boost/math/special_functions/binomial.hpp>
-
 
 #define MAXBUFSIZE  ((int) 1e6)
 
@@ -39,6 +39,44 @@ std::vector< std::pair<int,std::vector<double> > > read_prior(const char*
 			acc.push_back(std::make_pair(size_household,priors));
 		}
 		return acc;
+	}
+
+int find_maximum(std::vector< std::pair<int,std::vector<double> > > &priors)
+{
+	int curr_max = 0;
+	for(auto household : priors)
+	{
+		int temp = household.first;
+		if(temp > curr_max) curr_max = temp;
+	}
+	return curr_max;
+}
+
+Eigen::MatrixXd proposal(std::vector< std::pair<int,std::vector<double> > > 
+	&priors,int max_n)
+	{
+		std::random_device rd;
+		std::mt19937 rng(rd());
+
+		Eigen::MatrixXd final_sizes(max_n+1,max_n);
+
+		for(auto household : priors)
+		{
+			int number_sick=0;
+
+			for(double ind_prob : household.second) // We go through all members
+				// of the household and assign them an individual status
+			{
+				std::bernoulli_distribution sick(ind_prob);
+				if(sick(rng))
+				{
+					number_sick++;
+				}
+			}
+
+		final_sizes(number_sick,household.first-1)++;
+		}
+		return final_sizes;
 	}
 
 Eigen::MatrixXd readMatrix(const char *filename)
@@ -233,6 +271,12 @@ int main(int argc, char const *argv[])
 {
 	auto priors = read_prior("test_prior.txt");
 
+	int max_n = find_maximum(priors);
+
+	Eigen::MatrixXd prop = proposal(priors,max_n);
+
+	std::cout << prop << std::endl;
+
 	std::vector<Eigen::MatrixXd> households; /* Contiendra les valeurs de 
 	tailles finales */
 
@@ -265,7 +309,7 @@ int main(int argc, char const *argv[])
 
 	Eigen::MatrixXd test_matrix = readMatrix("test_matrix.txt");
 
-	void* my_func_data = static_cast<void *>(&test_matrix);
+	void* my_func_data = static_cast<void *>(&prop);
 
 	std::cout << "Optimisation en cours..." << std::endl;
 
